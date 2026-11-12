@@ -1432,6 +1432,8 @@ function fullProject() {
   put('.film/id', 'abc123\n');
   put('.film/opened', '');
   put('.film/subtitles.json', '{}');
+  put('.film/production.json', '{"status":"ready"}');
+  put('.film/providers.json', '{}');
   put('.film/history/HEAD', 'ref: refs/heads/main');
   put('.film/chat/sessions.json', '{}');
   put('.film/chat/agent/s.jsonl');
@@ -1454,7 +1456,7 @@ function fullProject() {
 test('a project\'s export takes its work and the parts asked, never its id, cache or another tool\'s files', async () => {
   const dir = fullProject();
   const names = async (parts) => (await projectFiles(dir, parts)).map((f) => f.name).sort();
-  const work = ['.film/subtitles.json', 'assets/audio/vo/line.mp3', 'assets/shoot.mov', 'film.html', 'scenes/one.html'];
+  const work = ['.film/production.json', '.film/subtitles.json', 'assets/audio/vo/line.mp3', 'assets/shoot.mov', 'film.html', 'scenes/one.html'];
   assert.deepEqual(await names([]), work);
   assert.deepEqual(await names(['history', 'chat', 'logs']), [...work, '.film/chat/agent/s.jsonl', '.film/chat/sessions.json', '.film/history/HEAD', '.film/logs/t1.jsonl'].sort());
   /* the folder being written to, inside the project, is left out */
@@ -1472,17 +1474,29 @@ test('a project exports as a zip holding its folder, or as the folder, each open
   const zipped = await exported({ kind: 'project', parts: ['history'] }, 'My Film', dir);
   assert.equal(zipped.out, join(exportsRoot(), 'My Film.zip'));
   const entries = zipEntries(zipped.out);
-  assert.deepEqual([...entries.keys()].sort(), ['My Film/.film/history/HEAD', 'My Film/.film/subtitles.json', 'My Film/assets/audio/vo/line.mp3', 'My Film/assets/shoot.mov', 'My Film/film.html', 'My Film/scenes/one.html']);
+  assert.deepEqual([...entries.keys()].sort(), ['My Film/.film/history/HEAD', 'My Film/.film/production.json', 'My Film/.film/subtitles.json', 'My Film/assets/audio/vo/line.mp3', 'My Film/assets/shoot.mov', 'My Film/film.html', 'My Film/scenes/one.html']);
+  assert.equal(entries.get('My Film/.film/production.json').toString(), '{"status":"ready"}');
   assert.equal(entries.get('My Film/assets/shoot.mov').toString(), 'footage');
   const copied = await exported({ kind: 'project', as: 'folder', parts: ['chat', 'logs'] }, 'My Film', dir);
   assert.equal(copied.out, join(exportsRoot(), 'My Film'));
   assert.ok(existsSync(join(copied.out, 'film.html')) && existsSync(join(copied.out, '.film', 'chat', 'sessions.json')) && existsSync(join(copied.out, '.film', 'logs', 't1.jsonl')));
   assert.ok(!existsSync(join(copied.out, '.film', 'id')) && !existsSync(join(copied.out, '.film', 'history')) && !existsSync(join(copied.out, '.film', 'cache')));
+  assert.equal(readFileSync(join(copied.out, '.film', 'production.json'), 'utf8'), '{"status":"ready"}');
   assert.equal(readFileSync(join(copied.out, 'assets', 'shoot.mov'), 'utf8'), 'footage');
   /* never over an earlier one */
   assert.equal((await exported({ kind: 'project', as: 'folder' }, 'My Film', dir)).out, join(exportsRoot(), 'My Film 2'));
   assert.throws(() => createExports().start(project('My Film', dir), { kind: 'project', parts: ['cache'] }), ExportError);
   assert.throws(() => createExports().start(project('My Film', dir), { kind: 'project', range: [0, 1] }), ExportError);
+});
+
+test('project exports do not follow links to production metadata outside the project', async () => {
+  const dir = fullProject();
+  const metadata = join(dir, '..', 'External Metadata');
+  mkdirSync(metadata);
+  writeFileSync(join(metadata, 'production.json'), '{"status":"published"}');
+  rmSync(join(dir, '.film'), { recursive: true });
+  symlinkSync(metadata, join(dir, '.film'), 'junction');
+  assert.ok(!(await projectFiles(dir, [])).some((file) => file.name === '.film/production.json'));
 });
 
 test('a project\'s export takes the files of a linked folder the film uses, as files, and leaves the rest of it out', async () => {

@@ -1,5 +1,6 @@
 /** The UI's words (简体中文). Looked up by dotted path with useT(). */
 import type { Words } from './words.ts';
+import { workbenchZh } from './workbench.ts';
 
 /** what the system's file manager is called here */
 const FILES = typeof navigator !== 'undefined' && /^win/i.test(navigator.platform) ? '文件资源管理器'
@@ -9,12 +10,13 @@ const TRASH = typeof navigator !== 'undefined' && /^win/i.test(navigator.platfor
   : typeof navigator !== 'undefined' && /^mac/i.test(navigator.platform) ? '废纸篓' : '回收站';
 
 export const zhCN: Words = {
+  workbench: workbenchZh,
   nav: {
     projects: '项目',
     desktop: '桌面版',
   },
   /* the projects the app window has open (ProjectSwitcher), a new tab's launcher, and the examples (ExamplesGallery) */
-  projectTabs: {"label": "已打开的项目", "new": "打开另一个项目", "closeNamed": "关闭 {name}", "revealFailed": "无法打开项目文件夹。", "coverCurrent": "请先切换到此标签页，再将当前帧设为封面。"},
+  projectTabs: {"label": "已打开的标签页", "new": "打开另一个项目", "closeNamed": "关闭 {name}", "revealFailed": "无法打开项目文件夹。", "coverCurrent": "请先切换到此标签页，再将当前帧设为封面。"},
   switcher: { oneClip: '1 个片段', clips: '{n} 个片段', label: '切换项目', open: '其它已打开', all: '全部项目…', close: '关闭', working: '进行中', asking: '等你回答', exporting: '导出中 {n}%', cover: '设定当前帧为封面', coverShort: "设定当前帧为封面", reveal: '打开文件夹' },
   launcher: { projects: '我的项目', examples: '示例' },
   appMenu: {

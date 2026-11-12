@@ -77,6 +77,8 @@ import { LOCATION_KEYS, chooseFolder, locations, usableFolder } from '../../src/
 import { doctor } from '../../src/doctor.mjs';
 import { recentProblems } from '../../src/problems.mjs';
 import { exportDiagnostics } from './diagnostics.mjs';
+import { createWorkbench } from './workbench.mjs';
+import { closeWorkbench } from './workbench-store.mjs';
 
 /** @typedef {import('./http.mjs').Req} Req @typedef {import('./http.mjs').Res} Res */
 
@@ -159,12 +161,18 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
   const toPages = (event) => { for (const send of editorPages.keys()) send(event); };
   let origin = '';
   let filmOrigin = '';
+  const workbenchChanged = () => toPages({ type: 'workbench' });
+  const workbench = createWorkbench({ changed: workbenchChanged, origin: () => origin });
 
   /** where each project's exports report their progress: the pages watching it */
   const exportRoots = new Map();
   const exports = createExports({ onChange: (job) => { const root = exportRoots.get(job.project); if (root) watchers.emit(root, { type: 'export', job }); } });
   /** films fetched from GitHub into the library (fetch-repo.mjs), each opened as a project when it lands */
-  const fetches = createFetches({ library: libraryRoot, open: (folder) => openProject(folder) });
+  const fetches = createFetches({ library: libraryRoot, open: async (folder) => {
+    const project = await openProject(folder);
+    workbenchChanged();
+    return project;
+  } });
 
   const sameKey = (/** @type {string | null | undefined} */ given) => {
     if (typeof given !== 'string') return false;
@@ -477,6 +485,7 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
         try { to = usableFolder(asked); } catch (e) { throw new HttpError(400, /** @type {Error} */ (e).message); }
       }
       const done = await moveLibrary(to, { move: move === true, choose: (folder) => chooseFolder('projectsFolder', folder) });
+      workbenchChanged();
       return json(res, 200, { ...done, locations: locations() });
     }
     if (parts[0] === 'locations' && parts[1] === 'projects' && parts.length === 2 && req.method === 'POST') {
@@ -631,19 +640,20 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
       return sendMedia(req, res, skill && file ? join(skill.folder, file) : null, { keep: true });
     }
 
+    if (parts[0] === 'workbench') return workbench.route(req, res, parts.slice(1));
     if (parts[0] !== 'projects') throw new HttpError(404, 'no such API');
     if (parts.length === 1) {
       if (req.method === 'GET') return json(res, 200, { projects: (await listProjects()).map((p) => (agentIn(p.path) ? { ...p, working: true } : p)) });
       /* `create` false: only a folder holding a film opens (the editor asks before starting one in a folder) */
       if (req.method === 'POST') {
         const body = /** @type {{ path?: string, name?: string, create?: boolean, subtitleStyle?: unknown }} */ (await readJson(req));
-        if (body.path) return json(res, 200, { project: await openProject(body.path, { create: body.create !== false }) });
-        const project = await createProject(body.name);
+        const project = body.path ? await openProject(body.path, { create: body.create !== false }) : await createProject(body.name);
         /* a new film starts in the subtitle look this person used last (Studio remembers it): written before its first
            version, so the project, its exports and Studio agree. An opened project keeps its own, or the default (#286). */
-        if (body.subtitleStyle && typeof body.subtitleStyle === 'object') {
+        if (!body.path && body.subtitleStyle && typeof body.subtitleStyle === 'object') {
           await writeSubtitleStyle(project.path, body.subtitleStyle).catch(() => { /* the film still opens, in the default look */ });
         }
+        workbenchChanged();
         return json(res, 200, { project });
       }
     }
@@ -679,11 +689,15 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
     if (parts.length === 3 && parts[2] === 'locate' && req.method === 'POST') {
       const { path: folder } = /** @type {{ path?: string }} */ (await readJson(req));
       if (typeof folder !== 'string' || !isAbsolute(folder)) throw new HttpError(400, 'the folder\'s full path, please');
-      return json(res, 200, { project: await locateProject(parts[1], folder) });
+      const project = await locateProject(parts[1], folder);
+      workbenchChanged();
+      return json(res, 200, { project });
     }
     if (parts.length === 3 && parts[2] === 'duplicate' && req.method === 'POST') {
       const { name } = /** @type {{ name?: string }} */ (await readJson(req));
-      return json(res, 200, { project: await duplicateProject(parts[1], name) });
+      const project = await duplicateProject(parts[1], name);
+      workbenchChanged();
+      return json(res, 200, { project });
     }
     const project = await projectById(parts[1]);
     const rest = parts.slice(2).join('/');
@@ -761,6 +775,7 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
           watchers.emit(renamed.path, { type: 'film', rev: '' });
           watchers.emit(renamed.path, { type: 'files' });
           watchers.emit(renamed.path, { type: 'history' });
+          workbenchChanged();
         }
         return json(res, 200, { project: renamed });
       }
@@ -771,6 +786,7 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
         await deleteProject(project.id);
         /* every page showing it leaves it (with tabs, its tab closes) */
         watchers.emit(project.path, { type: 'gone' });
+        workbenchChanged();
         return json(res, 200, {});
       }
     }
@@ -1151,7 +1167,10 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
     /* the project's own cover (cover.mjs): PUT a picture's bytes; POST `{ path }`, a picture of the project, or `{ ms }`,
        the film at that moment; DELETE, none of its own (the film's poster again). Answers when it was set (null: none) */
     if (rest === 'cover') {
-      const set = (/** @type {{ at: number } | null} */ cover) => json(res, 200, { cover: cover?.at ?? null });
+      const set = (/** @type {{ at: number } | null} */ cover) => {
+        workbenchChanged();
+        return json(res, 200, { cover: cover?.at ?? null });
+      };
       try {
         if (req.method === 'PUT') return set(await setCover(project.path, await readCoverBody(req)));
         if (req.method === 'POST') {
@@ -1287,6 +1306,7 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
     /* `supervisor`: the process that starts this one again if it ends unexpectedly (main.mjs), stopped with it */
     const supervisor = Number(process.env.OPENFILM_STUDIO_SUPERVISOR) || undefined;
     writeFileSync(runFile(), `${JSON.stringify({ pid: process.pid, ...(supervisor ? { supervisor } : {}), origin, filmOrigin: pages.origin, key })}\n`, { mode: 0o600 });
+    workbench.start();
   }
 
   /** @type {Promise<void> | null} */
@@ -1305,6 +1325,7 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
     const exporting = exports.stopAll();
     fetches.stopAll();
     autoVersions.stop();
+    await workbench.close();
     await closePageFrames();
     watchers.closeAll();
     await pages.close();
@@ -1313,6 +1334,7 @@ export async function startStudio({ port = 4747, key, openBrowser = systemBrowse
     await new Promise((done) => editor.close(() => done(undefined)));
     await exporting;
     await historyPreviews.close();
+    if (advertise) await closeWorkbench();
   }
   return studio;
 }

@@ -17,7 +17,7 @@
  */
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2 } from 'lucide-react';
+import { LayoutDashboard, Loader2 } from 'lucide-react';
 import { api, ApiError, LIBRARY_EVENT } from '@/api';
 import { recycleRefusalOf, recycleRefusalWords, type RecycleRefusal } from '@/lib/recycle';
 import { useT } from '@/i18n';
@@ -245,6 +245,7 @@ export function ProjectsPopover({
   onOpen,
   onCurrentRemoved,
   onClose,
+  onWorkbench,
   examples,
   onUseCanvas,
 }: {
@@ -260,6 +261,7 @@ export function ProjectsPopover({
   onCurrentRemoved: () => void;
   /** Missing: the window cannot be closed (there is no project behind it). */
   onClose?: () => void;
+  onWorkbench?: () => void;
   /** open on the examples (the app's chat asked for them), and on this one's page */
   examples?: { example?: string };
   /** over a film: an example's canvas laid down on its own */
@@ -447,6 +449,14 @@ export function ProjectsPopover({
   if (!open) return null;
 
   /* unavailable projects only leave the list; any remaining files stay on disk */
+  const workbenchButton = onWorkbench ? (
+    <button type="button" onClick={onWorkbench} className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]">
+      <LayoutDashboard size={15} />{t('workbench.title')}
+    </button>
+  ) : null;
+  const switcher = <LauncherSwitch view={view} onView={showView} />;
+  const heading = workbenchButton ? <div className="mr-auto flex items-center gap-3">{switcher}{workbenchButton}</div> : switcher;
+
   const pendingMissing = (pendingDelete ?? []).filter((id) => lib.projects.find((p) => p.id === id)?.missing).length;
   const onlyMissing = pendingDelete != null && pendingMissing === pendingDelete.length;
   const deleteTitle = !pendingDelete ? ''
@@ -474,7 +484,7 @@ export function ProjectsPopover({
           {view === 'examples' ? (
             <ExamplesGallery
               key={examples?.example ?? ''}
-              heading={<LauncherSwitch view={view} onView={showView} />}
+              heading={heading}
               {...(examples?.example ? { initial: examples.example } : {})}
               onClose={onClose}
               onStart={(example) => setGithub({ url: example.url, start: true, title: example.title })}
@@ -501,7 +511,7 @@ export function ProjectsPopover({
           ) : lib.loaded ? (
             <ProjectCoverContext.Provider value={cover.actions}>
             <ProjectsView
-              heading={<LauncherSwitch view={view} onView={showView} />}
+              heading={heading}
               projects={lib.projects}
               creating={busy !== null}
               onNewProject={(folderId) => void newProject(folderId)}
@@ -542,6 +552,7 @@ export function ProjectsPopover({
               >
                 {t('projects.loadRetry')}
               </button>
+              {workbenchButton}
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center text-[var(--text-muted)]">

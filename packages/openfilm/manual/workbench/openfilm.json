@@ -1,0 +1,12 @@
+{
+  "order": 4,
+  "icon": "layers",
+  "title": {
+    "en": "Production workbench",
+    "zh-CN": "视频工作台"
+  },
+  "summary": {
+    "en": "Check project status, daily topics and published video performance.",
+    "zh-CN": "查看作品进度、每日选题和已发布视频的数据。"
+  }
+}

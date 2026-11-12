@@ -13,7 +13,7 @@ export const es: Words = {
     desktop: 'Escritorio',
   },
   /* the projects the app window has open (ProjectSwitcher), a new tab's launcher, and the examples (ExamplesGallery) */
-  projectTabs: {"label": "Proyectos abiertos", "new": "Abrir otro proyecto", "closeNamed": "Cerrar {name}", "revealFailed": "No se pudo abrir la carpeta del proyecto.", "coverCurrent": "Cambia a esta pestaña para usar su fotograma actual como portada."},
+  projectTabs: {"label": "Pestañas abiertas", "new": "Abrir otro proyecto", "closeNamed": "Cerrar {name}", "revealFailed": "No se pudo abrir la carpeta del proyecto.", "coverCurrent": "Cambia a esta pestaña para usar su fotograma actual como portada."},
   switcher: { oneClip: '1 clip', clips: '{n} clips', label: 'Cambiar de proyecto', open: 'Otros proyectos abiertos', all: 'Todos los proyectos…', close: 'Cerrar', working: 'Trabajando', asking: 'Esperando tu respuesta', exporting: 'Exportando {n}%', cover: 'Usar fotograma actual de portada', coverShort: "Usar portada", reveal: 'Mostrar carpeta' },
   launcher: { projects: 'Proyectos', examples: 'Ejemplos' },
   appMenu: {

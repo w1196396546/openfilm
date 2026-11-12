@@ -1,14 +1,14 @@
 /**
- * Studio is one place: a project (/projects/<id>). The projects are a popover inside it; `/` goes to the project
+ * Studio opens a project (/projects/<id>) or the workbench (/workbench). The projects are a popover; `/` goes to the project
  * opened last, or (none left, or only ones whose folder is gone) shows the Projects window on its own, with "New
  * project" in it: no folder is made that the person did not ask for. The address is the state, so the agent's
  * `openfilm open` (which sends the page to a project) and the browser's back button both work.
  *
- * In an app with tabs (lib/host.ts `tabs`) this page is one project's tab: a project picked opens in its own tab (the
+ * In an app with tabs (lib/host.ts `tabs`) a project picked opens in its own tab (the
  * app's to open), `/` is the projects (the window with no tab open), and `openfilm open` is the app's to settle (every
  * tab hears it).
  */
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from 'react';
 import { api, listen, studioConnection } from './api';
 import { useT } from './i18n';
 import { ProjectView } from './components/ProjectView';
@@ -37,12 +37,16 @@ const keepKey = (to: string) => {
 const projectIn = (path: string) => /^\/projects\/([\w-]+)/.exec(path)?.[1] ?? null;
 /** the app's tabs, when Studio is a tab of an app's window */
 const tabs = studioHost?.tabs ?? null;
+const WorkbenchView = lazy(() => import('./components/workbench/WorkbenchView'));
+const address = () => location.pathname + location.search;
 
 export function App() {
-  const [path, setPath] = useState(location.pathname);
+  const [path, setPath] = useState(address);
+  const [workbenchRevision, setWorkbenchRevision] = useState(0);
   const go = (to: string, replace = false) => {
-    if (to !== location.pathname) (replace ? history.replaceState : history.pushState).call(history, null, '', keepKey(to));
-    setPath(to);
+    const next = keepKey(to);
+    if (next !== address()) (replace ? history.replaceState : history.pushState).call(history, null, '', next);
+    setPath(address());
   };
 
   /* the examples and skills, read as Studio opens: a gallery opened later shows them at once */
@@ -51,27 +55,36 @@ export function App() {
   useEffect(() => afterPaintIdle(() => { void loadCanvas().catch(() => {}); }), []);
 
   useEffect(() => {
-    const onPop = () => setPath(location.pathname);
+    const onPop = () => setPath(address());
+    const refreshWorkbench = () => { if (location.pathname === '/workbench') setWorkbenchRevision((n) => n + 1); };
     window.addEventListener('popstate', onPop);
     /* `openfilm open` while this page is open: show the project it opened (with tabs, the app says which tab does) */
     const stop = listen('events', (event) => {
+      if (event.type === 'workbench' || event.type === 'open') refreshWorkbench();
       if (event.type !== 'open') return;
       if (tabs) tabs.openRequest(event.to); else go(event.to);
-    }, { watch: true });
-    return () => { window.removeEventListener('popstate', onPop); stop(); };
+    }, { watch: true, onBack: refreshWorkbench });
+    const stopTopic = tabs?.onTopic?.((topicId) => {
+      if (location.pathname === '/workbench') go(`/workbench?topic=${encodeURIComponent(topicId)}`);
+    });
+    return () => { window.removeEventListener('popstate', onPop); stop(); stopTopic?.(); };
   }, []);
 
   /** Show a project: here, or (with tabs) in its own tab. */
   const open = (projectId: string) => { if (tabs) tabs.open(projectId); else go(`/projects/${projectId}`); };
+  const openWorkbench = () => { if (tabs?.openWorkbench) tabs.openWorkbench(); else go('/workbench'); };
   /** The project shown was deleted: its tab closes (with tabs), or back to the last project. */
   const leave = () => { if (tabs) tabs.report({ gone: true }); else go('/', true); };
 
-  const id = projectIn(path);
+  const current = new URL(path, location.origin);
+  const id = projectIn(current.pathname);
+  const workbench = current.pathname === '/workbench';
+  const topicId = current.searchParams.get('topic') || undefined;
   /* no project in the address: the one opened last that is still there, else the Projects window (`none`); with
      tabs, the projects (no tab is open) */
   const [none, setNone] = useState(false);
   useEffect(() => {
-    if (id || tabs) return;
+    if (id || workbench || tabs) return;
     let alive = true;
     /* the list not read (refused, or no answer in time): the Projects window, which says so and tries again */
     void within(api.projects(), LIST_WAIT_MS).then((projects) => {
@@ -81,14 +94,21 @@ export function App() {
       else setNone(true);
     }, () => { if (alive) setNone(true); });
     return () => { alive = false; setNone(false); };
-  }, [id]);
+  }, [id, workbench]);
 
-  const page = id ? <ProjectView key={id} projectId={id} onProject={open} onLeave={leave} />
-    : tabs ? <Launcher onOpen={open} />
+  const page = workbench ? (
+    <Suspense fallback={<BrandLoadingScreen labelKey="workbench.loading" />}>
+      <WorkbenchView onOpenProject={open} topicId={topicId} revision={workbenchRevision} onClearTopic={() => {
+        if (topicId) tabs?.clearTopic?.(topicId);
+        go('/workbench', true);
+      }} />
+    </Suspense>
+  ) : id ? <ProjectView key={id} projectId={id} onProject={open} onLeave={leave} onWorkbench={openWorkbench} />
+    : tabs ? <Launcher onOpen={open} onWorkbench={openWorkbench} />
     : !none ? <BrandLoadingScreen labelKey="projects.opening" />
       : (
         <div className="workspace-shell bg-[var(--bg-app)]">
-          <ProjectsPopover open currentProjectId="" onOpen={(next) => go(`/projects/${next}`)} onCurrentRemoved={() => {}} />
+          <ProjectsPopover open currentProjectId="" onOpen={open} onCurrentRemoved={() => {}} onWorkbench={openWorkbench} />
         </div>
       );
   return <>{page}<ConnectionNotice /><WhatsNew /></>;

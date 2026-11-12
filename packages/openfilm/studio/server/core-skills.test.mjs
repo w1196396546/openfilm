@@ -22,12 +22,13 @@ test("Studio lists OpenFilm's own skills first, in their order, installed, and o
     body: body ? JSON.stringify(body) : undefined,
   });
   const listed = async () => (await (await api('/api/skills')).json()).skills;
-  const core = (await listed()).slice(0, 3);
+  const core = (await listed()).slice(0, 4);
   assert.deepEqual(core.map((s) => [s.uid, s.as, s.core, s.installed]), [
     ['openfilm/edit', 'openfilm-edit', true, true], ['openfilm/media', 'openfilm-media', true, true], ['openfilm/canvas', 'openfilm-canvas', true, true],
+    ['openfilm/workbench', 'openfilm-workbench', true, true],
   ]);
   assert.equal(core[0].shown.title['zh-CN'], '剪辑');
-  assert.ok((await listed()).slice(3).every((s) => !s.core), 'the library\'s are not');
+  assert.ok((await listed()).slice(4).every((s) => !s.core), 'the library\'s are not');
   assert.equal((await api('/api/skills/openfilm%2Fcanvas/on', { method: 'PUT', body: { on: false } })).status, 200);
   assert.equal((await listed()).find((s) => s.uid === 'openfilm/canvas').off, true);
   assert.equal((await api('/api/skills/openfilm%2Fcanvas/installed', { method: 'PUT', body: { installed: false } })).status, 404, 'never uninstalled');

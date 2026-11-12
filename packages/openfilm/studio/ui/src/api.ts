@@ -95,6 +95,8 @@ async function call<T>(path: string, init: RequestInit & { json?: unknown } = {}
   }
 }
 
+export const studioCall = call;
+
 const p = (id: string) => `projects/${encodeURIComponent(id)}`;
 
 /** Studio's own preferences, the same for every project (studio/server/prefs.mjs). */
@@ -290,6 +292,7 @@ export type StudioNotice = { id: string; kind: 'balance'; provider: string; prov
 export type FolderEvent = { type: 'film'; rev: string } | { type: 'files'; paths?: string[] } | { type: 'history' } | { type: 'export'; job: ExportJob } | { type: 'open'; to: string }
   | { type: 'history-progress'; op: string; phase: string; done: number; total: number }
   | { type: 'ask'; ask: SpendAsk } | { type: 'asked'; id: string } | { type: 'notice'; notice: StudioNotice } | { type: 'project'; project: Project }
+  | { type: 'workbench' }
   /* an agent changed the canvas (`openfilm canvas apply`) */
   | { type: 'canvas', reset?: boolean }
   /* its folder is there but film.html is not (an agent writing it again, or it lost): the project stays open and

@@ -68,7 +68,7 @@ import { execFile, fork, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { randomBytes } from 'node:crypto';
 import { constants as fsConstants, existsSync, readFileSync, statSync } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import { homedir, setPriority, tmpdir } from 'node:os';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -421,7 +421,7 @@ const NOT_THE_PROJECT = new Set(['.git', 'node_modules', '.DS_Store']);
 /**
  * The files of the project at `root` its export takes, with their names in it ('/' between folders): its work (every
  * file but those of `.film/` and NOT_THE_PROJECT; a link to a file is followed, so the export has the media itself)
- * with the subtitles' style, and the parts of `.film/` asked. A link to a folder (a whole footage library, often) is
+ * with its editor and production metadata, and the parts of `.film/` asked. A link to a folder (a whole footage library, often) is
  * not taken whole: only the files in it the film uses (closure.mjs: a clip's file, its subtitles and transcripts, what
  * a page loads), as files at the same places, so the copy plays. Never the project's id (a copy gets its own) nor its
  * cache. `skip`: a folder not to take (where the export is being written, when it is inside).
@@ -470,6 +470,11 @@ export async function projectFiles(root, parts, skip) {
   /* its canvas: how it was laid out and made, with the film */
   const canvas = join(root, TOOL_DIR, 'canvas.json');
   if (existsSync(canvas)) files.push({ name: `${TOOL_DIR}/canvas.json`, file: canvas, size: statSync(canvas).size });
+  const production = join(root, TOOL_DIR, 'production.json');
+  if ((await lstat(dirname(production)).catch(() => null))?.isDirectory()) {
+    const info = await lstat(production).catch(() => null);
+    if (info?.isFile()) files.push({ name: `${TOOL_DIR}/production.json`, file: production, size: info.size });
+  }
   for (const part of parts) await walk(join(root, TOOL_DIR, part), `${TOOL_DIR}/${part}`);
   return files;
 }

@@ -6,8 +6,9 @@ import React from 'react';
  * editor in, served with `startStudio({ editorDir })`); Studio then leaves out what only makes sense in a browser,
  * such as the button that introduces the desktop app.
  */
-/** A tab of the app's window (`tabs` below): a project's, its title as Studio shows it. */
-export interface HostTab { id: string; projectId: string; title: string; active: boolean; working: boolean; asking: boolean; exporting: number | null }
+/** A tab of the app's window (`tabs` below). */
+export type HostTab = { id: string; title: string; active: boolean; working: boolean; asking: boolean; exporting: number | null }
+  & ({ kind: 'project'; projectId: string } | { kind: 'workbench'; projectId: null });
 
 /** Settings → Developer, as the app keeps it (`developer` below). */
 export interface HostDeveloper { logs: boolean; changes: boolean }
@@ -179,7 +180,7 @@ export interface StudioHost {
     onChange: (listener: (on: boolean) => void) => () => void;
   };
   /**
-   * The app keeps each open project in a tab of its own window, one shown at a time, and draws nothing of them: Studio
+   * The app keeps the workbench and each open project in a tab of its own window, one shown at a time. Studio
    * names the one in front at its top bar's left, the way to the others and to the recent ones (ProjectSwitcher,
    * `open`: one open already is shown). With no tab open the page is at `/`, and
    * Studio shows the projects there. `list` gives the tabs and which is this page's (`self`); `onChange` every change.
@@ -195,6 +196,9 @@ export interface StudioHost {
     close: (id?: string) => void;
     /** a project's tab: shown, opened when it is not */
     open: (projectId: string) => void;
+    openWorkbench: (topicId?: string) => void;
+    clearTopic: (topicId: string) => void;
+    onTopic: (listener: (topicId: string) => void) => () => void;
     move: (id: string, index: number) => void;
     report: (state: { title?: string; exporting?: number | null; gone?: boolean }) => void;
     /** projects this page deleted: their tabs close together, none of them to be opened again */

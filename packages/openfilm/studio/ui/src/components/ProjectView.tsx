@@ -10,7 +10,7 @@ import * as React from 'react';
 import { afterPaintIdle } from '@/lib/after-paint-idle';
 import { loadCanvas } from './canvas/load';
 import { CanvasLoading } from './canvas/CanvasLoading';
-import { BookmarkPlus, ClipboardCopy, ClipboardPaste, FolderOpen, Layers, MessageSquarePlus, MonitorDown, Scissors, Settings2, TriangleAlert, Upload, Workflow } from 'lucide-react';
+import { BookmarkPlus, ClipboardCopy, ClipboardPaste, FolderOpen, Layers, LayoutDashboard, MessageSquarePlus, MonitorDown, Scissors, Settings2, TriangleAlert, Upload, Workflow } from 'lucide-react';
 import { applyOps } from '../../../server/ops.mjs';
 import { withPreset } from '../../../../src/clip-motion.mjs';
 import { PARTS, compoundFolder, compoundOf, dissolvedOf, srcInto, srcOutOf } from '../../../server/compound.mjs';
@@ -233,12 +233,13 @@ function clipIdAt(film: Film | null, loc: string): string | null {
   return at ? film?.tracks[at.track]?.clips[at.clip]?.id ?? null : null;
 }
 
-export function ProjectView({ projectId, onProject, onLeave }: {
+export function ProjectView({ projectId, onProject, onLeave, onWorkbench }: {
   projectId: string;
   /** go to another project */
   onProject: (id: string) => void;
   /** this project was taken off the list (or is gone): leave it */
   onLeave: () => void;
+  onWorkbench?: () => void;
 }) {
   const t = useT();
   const toast = useToast();
@@ -4528,6 +4529,7 @@ export function ProjectView({ projectId, onProject, onLeave }: {
       <div data-page-ready="error" className="workspace-shell flex flex-col items-center justify-center gap-3 bg-[var(--bg-app)] text-[13px] text-[var(--text-muted)]">
         <p>{failure}</p>
         <button type="button" onClick={onLeave} className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:bg-[var(--bg-hover)]">{t('nav.projects')}</button>
+        {onWorkbench ? <button type="button" onClick={onWorkbench} className="rounded-lg border border-[var(--border)] px-3 py-1.5 hover:bg-[var(--bg-hover)]">{t('workbench.title')}</button> : null}
       </div>
     );
   }
@@ -4555,8 +4557,11 @@ export function ProjectView({ projectId, onProject, onLeave }: {
             {/* the window's controls over this, then the app menu */}
             <div aria-hidden className={studioHost?.tabs ? tabStyles.windowSpace : 'shrink-0 self-stretch'} style={{ width: 'var(--titlebar-logo-x)' }} />
             <div className={studioHost?.tabs ? tabStyles.system : 'pointer-events-auto relative flex min-w-0 items-center'}><AppMenu onSettings={setSettingsOpen} /></div>
-            {studioHost?.tabs ? <ProjectTabs current={projectTitle} onProjects={() => setProjectsOpen(true)} onRenameCurrent={startRename} onCoverCurrent={coverFromFrame} /> : null}
+            {studioHost?.tabs ? <ProjectTabs current={projectTitle} onProjects={() => setProjectsOpen(true)} onWorkbench={onWorkbench} onRenameCurrent={startRename} onCoverCurrent={coverFromFrame} /> : null}
             <div className="pointer-events-auto relative flex min-w-0 items-center gap-1">
+              {!studioHost?.tabs && onWorkbench ? <Tooltip label={t('workbench.title')} side="bottom">
+                <button type="button" aria-label={t('workbench.title')} onClick={onWorkbench} className={TOP_BTN}><LayoutDashboard size={15} /></button>
+              </Tooltip> : null}
               <UpdateButton />
               <WebUpdateButton />
               {!studioHost && <Tooltip label={t('desktop.title')} side="bottom">

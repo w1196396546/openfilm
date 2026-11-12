@@ -160,6 +160,7 @@ await builder.build({
       artifactName: `${NAME.replace(' ', '-')}-Setup-\${arch}.\${ext}`,
     },
     appId: preview ? 'dev.openfilm.desktop.preview' : 'dev.openfilm.desktop',
+    ...(preview ? {} : { protocols: [{ name: 'OpenFilm Topic', schemes: ['openfilm'] }] }),
     productName: NAME,
     copyright: 'Copyright © 2026 OpenFilm',
     electronVersion,

@@ -14,6 +14,9 @@ const on = (channel) => (listener) => {
   return () => ipcRenderer.removeListener(channel, handler);
 };
 const invoke = (channel) => (opts) => ipcRenderer.invoke(channel, opts);
+let lastTopic;
+const listenForTopic = on('desktop:tabs:topic');
+listenForTopic((topicId) => { lastTopic = topicId; });
 
 contextBridge.exposeInMainWorld('openfilmNative', {
   platform: process.platform,
@@ -33,6 +36,17 @@ contextBridge.exposeInMainWorld('openfilmNative', {
     show: (id) => ipcRenderer.invoke('desktop:tabs:show', { id }),
     close: (id) => ipcRenderer.invoke('desktop:tabs:close', { id }),
     open: (projectId) => ipcRenderer.invoke('desktop:tabs:new', { projectId }),
+    openWorkbench: (topicId) => ipcRenderer.invoke('desktop:tabs:workbench', { topicId }),
+    clearTopic: (topicId) => {
+      if (topicId === lastTopic) lastTopic = undefined;
+      return ipcRenderer.invoke('desktop:tabs:clear-topic', { topicId });
+    },
+    onTopic: (listener) => {
+      if (typeof listener !== 'function') return () => {};
+      const stop = listenForTopic(listener);
+      if (lastTopic) listener(lastTopic);
+      return stop;
+    },
     move: (id, index) => ipcRenderer.invoke('desktop:tabs:move', { id, index }),
     report: (state) => ipcRenderer.invoke('desktop:tabs:report', state ?? {}),
     gone: (projectIds) => ipcRenderer.invoke('desktop:tabs:gone', { projectIds }),

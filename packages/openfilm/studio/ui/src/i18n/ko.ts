@@ -10,7 +10,7 @@ export const ko: Words = {
     desktop: '데스크톱',
   },
   /* the projects the app window has open (ProjectSwitcher), a new tab's launcher, and the examples (ExamplesGallery) */
-  projectTabs: {"label": "열린 프로젝트", "new": "다른 프로젝트 열기", "closeNamed": "{name} 닫기", "revealFailed": "프로젝트 폴더를 열 수 없습니다.", "coverCurrent": "이 탭으로 전환한 뒤 현재 프레임을 표지로 설정하세요."},
+  projectTabs: {"label": "열린 탭", "new": "다른 프로젝트 열기", "closeNamed": "{name} 닫기", "revealFailed": "프로젝트 폴더를 열 수 없습니다.", "coverCurrent": "이 탭으로 전환한 뒤 현재 프레임을 표지로 설정하세요."},
   switcher: { oneClip: '클립 1개', clips: '클립 {n}개', label: '프로젝트 전환', open: '다른 열린 프로젝트', all: '모든 프로젝트…', close: '닫기', working: '작업 중', asking: '답변 대기 중', exporting: '내보내는 중 {n}%', cover: '현재 프레임을 표지로 설정', coverShort: "표지로 설정", reveal: '폴더 보기' },
   launcher: { projects: '내 프로젝트', examples: '예시' },
   appMenu: {

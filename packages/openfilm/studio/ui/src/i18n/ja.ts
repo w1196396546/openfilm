@@ -13,7 +13,7 @@ export const ja: Words = {
     desktop: 'デスクトップ版',
   },
   /* the projects the app window has open (ProjectSwitcher), a new tab's launcher, and the examples (ExamplesGallery) */
-  projectTabs: {"label": "開いているプロジェクト", "new": "別のプロジェクトを開く", "closeNamed": "{name} を閉じる", "revealFailed": "プロジェクトフォルダーを開けませんでした。", "coverCurrent": "このタブに切り替えて、現在のフレームをカバーに設定します。"},
+  projectTabs: {"label": "開いているタブ", "new": "別のプロジェクトを開く", "closeNamed": "{name} を閉じる", "revealFailed": "プロジェクトフォルダーを開けませんでした。", "coverCurrent": "このタブに切り替えて、現在のフレームをカバーに設定します。"},
   switcher: { oneClip: '1 クリップ', clips: '{n} クリップ', label: 'プロジェクトを切り替え', open: 'ほかの開いているプロジェクト', all: 'すべてのプロジェクト…', close: '閉じる', working: '作業中', asking: '回答待ち', exporting: '書き出し中 {n}%', cover: '現在のフレームを表紙に', coverShort: "表紙に設定", reveal: 'フォルダを表示' },
   launcher: { projects: 'プロジェクト', examples: 'サンプル' },
   appMenu: {

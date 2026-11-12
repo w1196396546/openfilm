@@ -17,9 +17,8 @@
  *              (studio/server/skill-catalog.mjs), each the commit it was installed at, with where it came from in its
  *              `.source.json`. Every OpenFilm on this computer has the same ones.
  *
- * OpenFilm's own (coreSkills: `manual/` in this package) are how a film is made, its media and its canvas, which the
- * manual names: in every agent's hands unless the person turns one off (skillsOff), never installed or removed, so the
- * manual stays a page.
+ * OpenFilm's own (coreSkills: `manual/` in this package) are named by the manual and given to every agent unless the
+ * person turns one off (skillsOff). They ship with OpenFilm.
  *
  * Nothing here deletes a skill outright: one replaced or removed goes to the system's trash.
  *
@@ -378,8 +377,8 @@ export function usableSkills({ home, ...where } = {}) {
   return listSkills(where).filter((s) => !keeps(off, s));
 }
 
-/** OpenFilm's own skills by name, in the order agents are given them: how a film is made, its media, its canvas. */
-export const CORE_SKILLS = Object.freeze(['edit', 'media', 'canvas']);
+/** OpenFilm's own skills by name, in the order agents are given them. */
+export const CORE_SKILLS = Object.freeze(['edit', 'media', 'canvas', 'workbench']);
 
 /** OpenFilm's own skills (coreSkillsDir), which every agent has unless turned off, in CORE_SKILLS's order. @returns {Skill[]} */
 export function coreSkills() {

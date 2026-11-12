@@ -1,0 +1,33 @@
+export const workbenchAnalyticsEn = {
+  title: 'Performance', loading: 'Loading snapshots…', noData: 'No snapshots for this platform yet.',
+  platform: 'Snapshot platform', metric: 'Chart metric', none: 'No observations for this metric.',
+  views: 'Views', likes: 'Likes', comments: 'Comments', shares: 'Shares', saves: 'Saves', followersDelta: 'Net followers',
+  capturedAt: 'Captured at', source: 'Source', recent: 'Recent snapshots', manual: 'Manual', csv: 'CSV',
+  douyin: 'Douyin', xiaohongshu: 'Xiaohongshu',
+  add: 'Record snapshot', save: 'Save snapshot', upload: 'Import CSV', choose: 'Snapshot CSV',
+  csvHelp: 'Include capturedAt (ISO date and time with timezone, or epoch milliseconds) and one or more metric columns. Empty values are kept as missing.',
+  platformNeeded: 'Save a platform in the production details to add snapshots.',
+  timeInvalid: 'Enter a capture date and time.', metricsNeeded: 'Enter at least one metric.',
+  fileTooLarge: 'Choose a CSV of up to 1 MiB.', imported: 'Saved {count} new snapshots.',
+  unchanged: 'These observations are already recorded.', saving: 'Saving…', retry: 'Try again',
+  milestones: 'Post-publication comparison', milestoneHint: 'Each milestone uses the last observation in the preceding 24 hours.',
+  publishFirst: 'Save a publication time to compare T+1, T+3 and T+7.',
+  weekly: 'Download weekly report', downloading: 'Preparing report…',
+};
+
+export const workbenchAnalyticsZh: Record<keyof typeof workbenchAnalyticsEn, string> = {
+  title: '数据复盘', loading: '正在读取快照…', noData: '这个平台还没有快照。',
+  platform: '快照平台', metric: '趋势指标', none: '这个指标暂无记录。',
+  views: '播放', likes: '点赞', comments: '评论', shares: '分享', saves: '收藏', followersDelta: '净增粉丝',
+  capturedAt: '采集时间', source: '来源', recent: '近期快照', manual: '手工录入', csv: 'CSV',
+  douyin: '抖音', xiaohongshu: '小红书',
+  add: '录入快照', save: '保存快照', upload: '导入 CSV', choose: '快照 CSV',
+  csvHelp: 'CSV 须包含 capturedAt（带时区的 ISO 日期时间或毫秒时间戳）和至少一个指标列。空值保留为空。',
+  platformNeeded: '请先在作品信息中保存发布平台，再录入快照。',
+  timeInvalid: '请输入采集时间。', metricsNeeded: '请至少填写一项指标。',
+  fileTooLarge: '请选择不超过 1 MiB 的 CSV。', imported: '已保存 {count} 条新快照。',
+  unchanged: '这些观测值已经记录。', saving: '正在保存…', retry: '重试',
+  milestones: '发布后数据对比', milestoneHint: '每个节点取该时间前 24 小时内的最后一次快照。',
+  publishFirst: '保存发布时间后可对比 T+1、T+3、T+7。',
+  weekly: '下载数据周报', downloading: '正在生成周报…',
+};

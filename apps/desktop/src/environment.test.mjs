@@ -5,12 +5,20 @@ import { existsSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  childEnvironment, environmentCache, expandWindowsVars, lastPathSource, loginShellVariables, macProxy, mergePath,
+  childEnvironment, environmentCache, expandWindowsVars, lastPathSource, launcherEnvironment, loginShellVariables, macProxy, mergePath,
   nodeVersionDirs, noProxyList, parseRegQuery, parseScutilProxy, proxyVariables, registryVariables, regQuery,
   shellSubset, shellVariables, windowsFreshPath, windowsProxy, withSystemProxy,
 } from './environment.mjs';
 
 const PROFILE = ['C:', 'Users', 'someone'].join('\\');
+
+test('Workbench variables reach the desktop launcher and stay out of the shared child environment', () => {
+  const source = { OPENFILM_FEISHU_WEBHOOK: 'test-webhook', OPENFILM_NEWSNOW_ORIGIN: 'http://127.0.0.1:9999' };
+  for (const [key, value] of Object.entries(source)) {
+    assert.equal(launcherEnvironment(source, '/bin')[key], value);
+    assert.equal(childEnvironment({ source, shell: { PATH: '/bin' } })[key], undefined);
+  }
+});
 
 const USER = `\r
 HKEY_CURRENT_USER\\Environment\r

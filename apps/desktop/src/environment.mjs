@@ -454,11 +454,13 @@ export async function loginShellEnvironment(options = {}) {
 
 /** What scripts/start.mjs passes on to Electron besides the OS identity: this app's own switches. */
 export const LAUNCHER_FLAGS = ['OPENFILM_DESKTOP_FLAVOR', 'OPENFILM_DESKTOP_CAPTURE', 'OPENFILM_EXAMPLES_INDEX', 'OPENFILM_API_URL', 'ELECTRON_ENABLE_LOGGING', 'ELECTRON_ENABLE_STACK_DUMPING'];
+/** Pass Workbench credentials and backup sources to Studio without adding them to agent environments. */
+export const WORKBENCH_ENV_KEYS = ['OPENFILM_FEISHU_WEBHOOK', 'OPENFILM_WECOM_WEBHOOK', 'OPENFILM_NEWSNOW_ORIGIN', 'OPENFILM_DAILYHOT_ORIGIN'];
 
 /** Electron's environment when run from source: the OS identity, the login shell's PATH, LAUNCHER_FLAGS. */
 export function launcherEnvironment(source, path) {
   const env = osEnvironment(source);
-  for (const key of LAUNCHER_FLAGS) if (typeof source[key] === 'string') env[key] = source[key];
+  for (const key of [...LAUNCHER_FLAGS, ...WORKBENCH_ENV_KEYS]) if (typeof source[key] === 'string') env[key] = source[key];
   env.PATH = path || mergePath('', env.HOME ?? env.USERPROFILE);
   return env;
 }

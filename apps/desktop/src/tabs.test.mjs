@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTabs, projectGone } from './tabs.mjs';
+import { createTabs, projectGone, topicFromLink } from './tabs.mjs';
 
 const ids = () => { let n = 0; return () => `t${++n}`; };
 
@@ -40,7 +40,7 @@ test('saved and restored, moved; agents and exports keep a page from being let g
   const tabs = createTabs({ newId: ids(), now: () => t });
   tabs.open({ projectId: 'A', title: 'One' }); tabs.open({ projectId: 'B', title: 'Two' }); tabs.open({ projectId: 'C' });
   tabs.move(tabs.byProject('B').id, 0);
-  assert.deepEqual(tabs.saved(), { tabs: [{ projectId: 'B', title: 'Two' }, { projectId: 'A', title: 'One' }, { projectId: 'C', title: '' }], active: 2 });
+  assert.deepEqual(tabs.saved(), { tabs: [{ kind: 'project', projectId: 'B', title: 'Two' }, { kind: 'project', projectId: 'A', title: 'One' }, { kind: 'project', projectId: 'C', title: '' }], active: 2 });
   const again = createTabs({ newId: ids(), saved: { tabs: [{ projectId: 'B' }, { projectId: 'B' }, { projectId: null }, { projectId: 'C' }], active: 9 } });
   assert.deepEqual(again.list().map((x) => [x.projectId, x.active]), [['B', false], ['C', true]], 'a project twice: once; none without a project; the active index kept in range');
   t = 10 * 60_000;
@@ -51,6 +51,51 @@ test('saved and restored, moved; agents and exports keep a page from being let g
   assert.deepEqual(tabs.idle(5 * 60_000), [tabs.byProject('A').id]);
   assert.equal(tabs.setAgents([], ['A']), true);
   assert.equal(tabs.list().find((x) => x.projectId === 'A').asking, true);
+});
+
+test('Workbench is a singleton, retains its topic, and survives project deletion and restart', () => {
+  const tabs = createTabs({ newId: ids() });
+  const project = tabs.open({ projectId: 'A' });
+  const board = tabs.open({ kind: 'workbench', topicId: 'topic_1' });
+  tabs.activate(project.id);
+  assert.equal(tabs.open({ kind: 'workbench', topicId: 'topic_2' }).id, board.id);
+  assert.equal(tabs.activeId(), board.id);
+  assert.equal(tabs.report(board.id, { title: 'wrong', exporting: 0.2 }), false);
+  assert.equal(tabs.setAgents(['A']), true);
+  assert.deepEqual(tabs.list().map((t) => [t.kind, t.projectId, t.active, t.working]), [
+    ['project', 'A', false, true], ['workbench', null, true, false],
+  ]);
+  assert.deepEqual(tabs.closeProjects(['A']).closed, [project.id]);
+  const saved = tabs.saved();
+  assert.deepEqual(saved, { tabs: [{ kind: 'workbench', topicId: 'topic_2' }], active: 0 });
+  const restored = createTabs({ saved, newId: ids() });
+  const active = restored.get(restored.activeId());
+  assert.equal(active.kind, 'workbench');
+  assert.equal(active.topicId, 'topic_2');
+  assert.equal(restored.close(active.id), null);
+  const reopened = restored.reopen();
+  assert.equal(reopened.topicId, 'topic_2');
+  assert.equal(restored.clearTopic(reopened.id, 'topic_1'), false);
+  assert.equal(restored.clearTopic(reopened.id, 'topic_2'), true);
+  assert.deepEqual(restored.saved(), { tabs: [{ kind: 'workbench' }], active: 0 });
+});
+
+test('restoring mixed old and new tabs keeps the active tab while dropping duplicates', () => {
+  const tabs = createTabs({ saved: {
+    tabs: [{ projectId: 'A' }, { projectId: 'A' }, { kind: 'workbench' }, { kind: 'workbench' }, { projectId: 'B' }], active: 2,
+  } });
+  assert.deepEqual(tabs.list().map((t) => [t.kind, t.projectId, t.active]), [
+    ['project', 'A', false], ['workbench', null, true], ['project', 'B', false],
+  ]);
+});
+
+test('topic deep links accept only an OpenFilm topic ID', () => {
+  assert.equal(topicFromLink('openfilm://topic/Topic_14-x'), 'Topic_14-x');
+  for (const value of [null, 'https://topic/1', 'openfilm://other/1', 'openfilm://topic/', 'openfilm://user@topic/1',
+    'openfilm://topic/one/two', 'openfilm://topic/one?do=send', 'openfilm://topic/one#two', 'openfilm://topic/%2F',
+    'openfilm://topic/one\n', `openfilm://topic/${'x'.repeat(129)}`]) {
+    assert.equal(topicFromLink(value), null);
+  }
 });
 
 test('projects gone take their tabs together: the front to the nearest that stays, none kept to open again', () => {

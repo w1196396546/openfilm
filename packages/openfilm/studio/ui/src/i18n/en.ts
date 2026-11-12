@@ -1,5 +1,6 @@
 
 /** The UI's words (English). Looked up by dotted path with useT(). */
+import { workbenchEn } from './workbench.ts';
 
 /** what the system's file manager is called here */
 const FILES = typeof navigator !== 'undefined' && /^win/i.test(navigator.platform) ? 'File Explorer'
@@ -9,12 +10,13 @@ const TRASH = typeof navigator !== 'undefined' && /^win/i.test(navigator.platfor
   : typeof navigator !== 'undefined' && /^mac/i.test(navigator.platform) ? 'the Trash' : 'the trash';
 
 export const en = {
+  workbench: workbenchEn,
   nav: {
     projects: 'Projects',
     desktop: 'Desktop',
   },
   /* the projects the app window has open (ProjectSwitcher), a new tab's launcher, and the examples (ExamplesGallery) */
-  projectTabs: {"label": "Open projects", "new": "Open another project", "closeNamed": "Close {name}", "revealFailed": "Could not open the project folder.", "coverCurrent": "Switch to this tab to use its current frame as the cover."},
+  projectTabs: {"label": "Open tabs", "new": "Open another project", "closeNamed": "Close {name}", "revealFailed": "Could not open the project folder.", "coverCurrent": "Switch to this tab to use its current frame as the cover."},
   switcher: { oneClip: '1 clip', clips: '{n} clips', label: 'Switch project', open: 'Other open projects', all: 'All projects…', close: 'Close', working: 'Working', asking: 'Waiting for you', exporting: 'Exporting {n}%', cover: 'Set current frame as cover', coverShort: "Set cover", reveal: 'Show folder' },
   launcher: { projects: 'Projects', examples: 'Examples' },
   appMenu: {

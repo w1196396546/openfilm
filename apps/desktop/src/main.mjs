@@ -1,5 +1,5 @@
 /**
- * OpenFilm for desktop: one window of tabs, a project in each, a chat on the left and Studio on the right, one page
+ * OpenFilm for desktop: one window of project and Workbench tabs, one page
  * per tab (tabs.mjs). A project is picked in Studio's projects window (the tabs' `+`), and its tab opens; with no tab
  * open, the window's page is the projects (HOME).
  *
@@ -15,7 +15,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FLAVOR, IDENTITY, PRODUCT_NAME } from './flavor.mjs';
 import { folderDialogOptions, programDialogOptions } from './folder-dialog.mjs';
-import { childEnvironment, lastPathSource, loginShellEnvironment } from './environment.mjs';
+import { childEnvironment, lastPathSource, loginShellEnvironment, WORKBENCH_ENV_KEYS } from './environment.mjs';
 import { gatherAppReport } from './app-report.mjs';
 import { startWindowStudio } from './studio.mjs';
 import { CHAT_MIN, STUDIO_MIN, WINDOW_MIN, placeOnDisplays, readWindowState, writeWindowState } from './window-state.mjs';
@@ -36,7 +36,7 @@ import { stepAside } from './update-launch.mjs';
 import { ensureFfmpeg, ffmpegDir, ffmpegDownloadable, ffmpegIn, ffmpegOnPath } from './ffmpeg-runtime.mjs';
 import { PATH_SEP } from './environment.mjs';
 import { firstWindowsApps } from './windows-apps.mjs';
-import { createTabs, projectGone } from './tabs.mjs';
+import { createTabs, projectGone, topicFromLink } from './tabs.mjs';
 import { turnNotice } from './turn-notices.mjs';
 import { restartDelay } from './studio-restart.mjs';
 
@@ -70,6 +70,7 @@ const LOGS = join(DATA, 'logs');
 mkdirSync(LOGS, { recursive: true });
 const log = (line) => { try { appendFileSync(join(LOGS, 'studio.log'), line); } catch { /* no log */ } };
 
+let pendingTopic = process.argv.map(topicFromLink).find(Boolean) ?? null;
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else if (mac && app.isPackaged && stepAside({ dir: DATA, version: app.getVersion(), bundleId: IDENTITY.bundleId, execPath: process.execPath, argv: process.argv })) {
@@ -77,7 +78,19 @@ if (!app.requestSingleInstanceLock()) {
      when it is done (update-launch.mjs) */
   app.exit(0);
 } else {
-  app.on('second-instance', () => focusWindow());
+  app.on('second-instance', (_event, args) => {
+    focusWindow();
+    const topic = args.map(topicFromLink).find(Boolean);
+    if (topic) openTopic(topic);
+  });
+  app.on('open-url', (event, url) => {
+    const topic = topicFromLink(url);
+    if (!topic) return;
+    event.preventDefault();
+    focusWindow();
+    openTopic(topic);
+  });
+  if (app.isPackaged && FLAVOR === 'release') app.setAsDefaultProtocolClient('openfilm');
   app.whenReady().then(start).catch((error) => {
     console.error(error);
     app.exit(1);
@@ -194,8 +207,12 @@ function makeView(tabId) {
 
 /** The page shown when no tab is open: Studio's projects (`/` with tabs). */
 const HOME = 'home';
-/** Where a tab's page opens: its project (no tab: the projects). */
-const pageAddress = (tab, path = null) => `${studio.origin}/open?key=${studio.key}&to=${encodeURIComponent(path ?? (tab ? `/projects/${encodeURIComponent(tab.projectId)}` : '/'))}`;
+/** Where a tab's page opens (no tab: the projects). */
+function pageAddress(tab, path = null) {
+  const defaultPath = tab?.kind === 'workbench' ? `/workbench${tab.topicId ? `?topic=${encodeURIComponent(tab.topicId)}` : ''}`
+    : tab ? `/projects/${encodeURIComponent(tab.projectId)}` : '/';
+  return `${studio.origin}/open?key=${studio.key}&to=${encodeURIComponent(path ?? defaultPath)}`;
+}
 
 /** Every page told of the tabs as they are now; kept for next time. */
 function tellTabs() {
@@ -262,14 +279,29 @@ function showPage(id) {
 /** Bring a tab to the front. */
 function showTab(id) {
   if (!tabs || !tabs.activate(id)) return;
-  showPage(id);
+  const shown = showPage(id);
   tellTabs();
+  return shown;
 }
 
 /** A project's tab (in front if it is open already). */
 function newTab(projectId) {
   if (!tabs || typeof projectId !== 'string' || !projectId) return;
   showTab(tabs.open({ projectId }).id);
+}
+
+function openWorkbench() {
+  if (tabs) showTab(tabs.open({ kind: 'workbench' }).id);
+}
+
+/** Deep links affect only the Workbench's topic selection. */
+function openTopic(topicId) {
+  if (!tabs) { pendingTopic = topicId; return; }
+  const tab = tabs.open({ kind: 'workbench', topicId });
+  void showTab(tab.id)?.then(() => {
+    const page = views.get(tab.id)?.webContents;
+    if (tab.kind === 'workbench' && tab.topicId === topicId && page && !page.isDestroyed()) page.send('desktop:tabs:topic', topicId);
+  });
 }
 
 /** Let a tab's page go: closed, or behind too long (the tab stays). */
@@ -338,8 +370,7 @@ function openInTabs(to) {
 }
 
 /**
- * The tabs open when the window opens: those left last time (none, when the last were closed: the projects), else, the
- * first time, the last project's; none: the projects.
+ * Restore the last session; Workbench is the first-run view.
  */
 async function openTabs() {
   const listed = (await studioApi('/api/projects').catch(() => ({ projects: [] }))).projects;
@@ -347,8 +378,18 @@ async function openTabs() {
   tabs = createTabs({ saved: state.tabs ?? null });
   /* a tab of a project no longer there is left out, and not kept to open again */
   const known = new Set(projects.map((p) => p.id));
-  tabs.closeProjects(tabs.list().map((t) => t.projectId).filter((id) => !known.has(id)));
-  if (!tabs.list().length && !state.tabs && projects[0]) tabs.open({ projectId: projects[0].id, title: projects[0].name });
+  tabs.closeProjects(tabs.list().flatMap((t) => t.kind === 'project' && t.projectId && !known.has(t.projectId) ? [t.projectId] : []));
+  if (pendingTopic) {
+    const topic = pendingTopic;
+    pendingTopic = null;
+    openTopic(topic);
+    return;
+  }
+  if (!state.tabs) {
+    if (FLAVOR === 'bench') {
+      if (projects[0]) tabs.open({ projectId: projects[0].id, title: projects[0].name });
+    } else tabs.open({ kind: 'workbench' });
+  }
   const front = tabs.activeId();
   if (front) showTab(front);
   else { showPage(HOME); tellTabs(); }
@@ -486,13 +527,14 @@ let restartWait = 0;
 
 async function runStudio(env) {
   startedAt = Date.now();
+  const workbenchEnv = Object.fromEntries(WORKBENCH_ENV_KEYS.filter((key) => process.env[key]).map((key) => [key, process.env[key]]));
   studio = await startWindowStudio({
     onAsk: answerStudio,
     home: env.OPENFILM_HOME,
     port: IDENTITY.studioPort,
     /* Studio serves the window's page as its editor (shell/: its editor with the chat beside it) */
     /* its diagnostic file takes the app's own logs too (Studio's diagnostics.mjs) */
-    env: { ...env, OPENFILM_EDITOR_DIR: here('../shell/dist/'), OPENFILM_APP_LOGS: LOGS },
+    env: { ...env, ...workbenchEnv, OPENFILM_EDITOR_DIR: here('../shell/dist/'), OPENFILM_APP_LOGS: LOGS },
     log,
     onOpen: (url) => {
       /* Studio would open a browser for an address of its own: the window already shows Studio */
@@ -517,7 +559,8 @@ async function runStudio(env) {
   if (!tabs) { await openTabs(); return; }
   for (const [id, v] of views) {
     const at = v.webContents.getURL();
-    await v.webContents.loadURL(pageAddress(tabs.get(id), at.startsWith('http') ? new URL(at).pathname : null));
+    const tab = tabs.get(id);
+    await v.webContents.loadURL(pageAddress(tab, tab?.kind !== 'workbench' && at.startsWith('http') ? new URL(at).pathname : null));
   }
 }
 
@@ -659,6 +702,16 @@ async function start() {
   });
   tabHandle('desktop:tabs:list', (self) => ({ self, tabs: tabs?.list() ?? [] }));
   tabHandle('desktop:tabs:new', (_self, { projectId }) => { newTab(projectId); return { ok: true }; });
+  tabHandle('desktop:tabs:workbench', (_self, { topicId }) => {
+    const topic = typeof topicId === 'string' ? topicFromLink(`openfilm://topic/${topicId}`) : null;
+    if (topic) openTopic(topic);
+    else openWorkbench();
+    return { ok: true };
+  });
+  tabHandle('desktop:tabs:clear-topic', (self, { topicId }) => {
+    if (tabs?.clearTopic(self, topicId)) saveState();
+    return { ok: true };
+  });
   tabHandle('desktop:tabs:show', (_self, { id }) => { showTab(String(id)); return { ok: true }; });
   tabHandle('desktop:tabs:close', (self, { id }) => { void closeTab(typeof id === 'string' ? id : self); return { ok: true }; });
   tabHandle('desktop:tabs:move', (_self, { id, index }) => { if (tabs?.move(String(id), Number(index))) tellTabs(); return { ok: true }; });
@@ -669,7 +722,7 @@ async function start() {
        Studio first: a tab closed stops its agent, and a project missing only film.html is not gone (tabs.mjs projectGone) */
     if (gone === true) {
       const tab = tabs.get(self);
-      if (tab) {
+      if (tab?.kind === 'project') {
         void studioApi('/api/projects').then(({ projects }) => { if (projectGone(projects, tab.projectId)) projectsGone([tab.projectId]); }, () => {});
       }
       return { ok: true };

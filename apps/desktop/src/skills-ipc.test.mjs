@@ -24,7 +24,7 @@ test('the preload carries a chosen cover through preview and commit into the ins
     process: { platform: process.platform },
     require: () => ({
       contextBridge: { exposeInMainWorld: (_key, value) => { native = value; } },
-      ipcRenderer: { invoke: (channel, opts) => handlers.get(channel)({}, opts) },
+      ipcRenderer: { on() {}, invoke: (channel, opts) => handlers.get(channel)({}, opts) },
     }),
   });
   const preview = await native.skills.previewFolder(null);

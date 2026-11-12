@@ -91,8 +91,8 @@ export function ProjectCard({ name, facts, actions = {}, onAll, trigger, disable
   }, [popup.open]);
 
   const names = new Map((projects ?? []).map((p) => [p.id, p.name]));
-  const titleOf = (tab: HostTab) => tab.title || names.get(tab.projectId) || t('project.untitled');
-  const others = tabs.filter((tab) => tab.id !== self);
+  const others = tabs.filter((tab) => tab.kind === 'project').filter((tab) => tab.id !== self);
+  const titleOf = (tab: (typeof others)[number]) => tab.title || names.get(tab.projectId) || t('project.untitled');
   /* another open project waits for the person, or works: said on the name, so it is seen without opening the card */
   const waiting = others.some((tab) => tab.asking);
   const working = others.some((tab) => tab.working);

@@ -1412,7 +1412,7 @@ function FolderPicker({
  * answers at once while it draws a film's first poster (so the card holds none of the browser's few connections to
  * it): the card shows its gradient and asks again a few times.
  */
-function PosterMedia({ project, shade = false }: { project: LibraryProject; shade?: boolean }) {
+export function PosterMedia({ project, shade = false }: { project: Pick<LibraryProject, 'id' | 'poster'>; shade?: boolean }) {
   /* the try asked for now (0: the first) and whether it failed, for this poster */
   const [attempt, setAttempt] = React.useState<{ url: string; n: number; failed: boolean } | null>(null);
   const [loadedUrl, setLoadedUrl] = React.useState<string | null>(null);

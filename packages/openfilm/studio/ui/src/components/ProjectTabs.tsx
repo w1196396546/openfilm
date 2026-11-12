@@ -1,6 +1,6 @@
 /** The desktop's projects as a continuous tab strip. Only a tab has a context menu; the empty title bar stays quiet. */
 import React from 'react';
-import { Clapperboard, FolderOpen, Image, Pencil, Plus, X } from 'lucide-react';
+import { Clapperboard, FolderOpen, Image, LayoutDashboard, Pencil, Plus, X } from 'lucide-react';
 import { api, ApiError } from '@/api';
 import { useT } from '@/i18n';
 import { studioHost, type HostTab } from '@/lib/host';
@@ -9,9 +9,10 @@ import { useHostTabs } from './ProjectCard';
 import { Toast, useToast } from './Toast';
 import styles from './ProjectTabs.module.css';
 
-export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurrent }: {
+export function ProjectTabs({ current, onProjects, onWorkbench, onRenameCurrent, onCoverCurrent }: {
   current?: React.ReactNode;
   onProjects: () => void;
+  onWorkbench?: () => void;
   onRenameCurrent?: () => void;
   onCoverCurrent?: () => void;
 }) {
@@ -20,12 +21,13 @@ export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurre
   const { tabs, self } = useHostTabs();
   const toast = useToast();
   const [context, setContext] = React.useState<{ id: string; x: number; y: number } | null>(null);
-  const [editing, setEditing] = React.useState<{ tab: HostTab; name: string } | null>(null);
+  const [editing, setEditing] = React.useState<{ tab: Extract<HostTab, { kind: 'project' }>; name: string } | null>(null);
   const [dragOver, setDragOver] = React.useState<string | null>(null);
   const input = React.useRef<HTMLInputElement>(null);
   const finished = React.useRef(false);
   const list = React.useRef<HTMLDivElement>(null);
   const beginRename = (tab: HostTab) => {
+    if (tab.kind !== 'project') return;
     if (tab.id === self && onRenameCurrent) onRenameCurrent();
     else setEditing({ tab, name: tab.title || t('project.untitled') });
   };
@@ -46,11 +48,12 @@ export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurre
     }
   };
   const target = tabs.find(tab => tab.id === context?.id);
-  const entries: ContextMenuEntry[] = target && host ? [
+  const entries: ContextMenuEntry[] = target?.kind === 'project' && host ? [
     { id: 'rename', icon: <Pencil size={14} />, label: t('projectMenu.rename'), onSelect: () => beginRename(target) },
     { id: 'cover', icon: <Image size={14} />, label: t('switcher.cover'), disabled: target.id !== self || !onCoverCurrent, hint: t('projectTabs.coverCurrent'), onSelect: onCoverCurrent },
     { id: 'reveal', icon: <FolderOpen size={14} />, label: t('switcher.reveal'), onSelect: () => { void api.revealProject(target.projectId).catch(() => toast.showError(t('projectTabs.revealFailed'))); } },
   ] : [];
+  const titleOf = (tab: HostTab) => tab.kind === 'workbench' ? t('workbench.title') : tab.title || t('project.untitled');
 
   if (!host) return null;
   return <>
@@ -65,20 +68,21 @@ export function ProjectTabs({ current, onProjects, onRenameCurrent, onCoverCurre
           draggable={!editing} onDragStart={event => { event.dataTransfer.setData('application/x-openfilm-tab', tab.id); event.dataTransfer.effectAllowed = 'move'; }}
           onDragEnd={() => setDragOver(null)} onDragLeave={() => setDragOver(null)} onDragOver={event => { if (event.dataTransfer.types.includes('application/x-openfilm-tab')) { event.preventDefault(); setDragOver(tab.id); } }}
           onDrop={event => { const from = event.dataTransfer.getData('application/x-openfilm-tab'); if (!from) return; event.preventDefault(); host.move(from, tabs.indexOf(tab)); setDragOver(null); }}
-          onContextMenu={event => { if ((event.target as HTMLElement).tagName === 'INPUT') return; event.preventDefault(); event.stopPropagation(); setContext({ id: tab.id, x: event.clientX, y: event.currentTarget.getBoundingClientRect().bottom + 4 }); }}>
+          onContextMenu={event => { if (tab.kind !== 'project' || (event.target as HTMLElement).tagName === 'INPUT') return; event.preventDefault(); event.stopPropagation(); setContext({ id: tab.id, x: event.clientX, y: event.currentTarget.getBoundingClientRect().bottom + 4 }); }}>
           {tab.id === self && current ? current : <button type="button" role="tab" aria-selected={tab.id === self} aria-hidden={editing?.tab.id === tab.id || undefined} tabIndex={editing?.tab.id === tab.id ? -1 : self === null || tab.id === self ? 0 : -1} className={styles.select}
             onClick={event => { if (event.detail < 2) host.show(tab.id); }} onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); beginRename(tab); }}
             onMouseDown={event => { if (event.button === 0 && event.detail === 2) { event.preventDefault(); event.stopPropagation(); beginRename(tab); } }}>
-            <Clapperboard size={13} /><span className={`${styles.name} ${editing?.tab.id === tab.id ? 'invisible' : ''}`}>{tab.title || t('project.untitled')}</span>
+            {tab.kind === 'workbench' ? <LayoutDashboard size={13} /> : <Clapperboard size={13} />}<span className={`${styles.name} ${editing?.tab.id === tab.id ? 'invisible' : ''}`}>{titleOf(tab)}</span>
           </button>}
           {editing?.tab.id === tab.id ? <input ref={input} className={`${styles.rename} ${styles.tabRename}`} aria-label={t('projectMenu.rename')} maxLength={56} value={editing.name}
             onChange={event => setEditing({ ...editing, name: event.target.value })} onBlur={() => void finishRename(true)}
             onKeyDown={event => { if (event.nativeEvent.isComposing) return; if (event.key === 'Enter' || event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); void finishRename(event.key === 'Enter'); } }} /> : null}
           {tab.asking || tab.working ? <span aria-label={t(tab.asking ? 'switcher.asking' : 'switcher.working')} className={`${styles.status} ${tab.asking ? styles.asking : 'status-breathe'}`} /> : tab.exporting != null ? <span className={styles.progress}>{Math.round(tab.exporting * 100)}%</span> : null}
-          <button type="button" className={styles.close} aria-label={t('projectTabs.closeNamed').replace('{name}', tab.title || t('project.untitled'))} onClick={() => host.close(tab.id)}><X size={12} /></button>
+          <button type="button" className={styles.close} aria-label={t('projectTabs.closeNamed').replace('{name}', titleOf(tab))} onClick={() => host.close(tab.id)}><X size={12} /></button>
         </div>)}
       </div>
       <button type="button" className={styles.add} aria-label={t('projectTabs.new')} onClick={onProjects}><Plus size={16} /></button>
+      {onWorkbench && !tabs.some(tab => tab.kind === 'workbench') ? <button type="button" className={styles.add} aria-label={t('workbench.title')} title={t('workbench.title')} onClick={onWorkbench}><LayoutDashboard size={15} /></button> : null}
     </div>
     {context && target ? <ContextMenu x={context.x} y={context.y} items={entries} onClose={() => setContext(null)} /> : null}
     <Toast toast={toast.current} />

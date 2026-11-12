@@ -172,10 +172,17 @@ export async function openProject(path, { create = true } = {}) {
 export async function createProject(name = 'Untitled') {
   const clean = folderName(name);
   const root = libraryRoot();
+  refuse(join(root, clean));
   await mkdir(root, { recursive: true });
-  let candidate = join(root, clean);
-  for (let n = 2; existsSync(candidate); n++) candidate = join(root, `${clean} ${n}`);
-  return openProject(candidate);
+  for (let n = 1; ; n++) {
+    const candidate = join(root, n === 1 ? clean : `${clean} ${n}`);
+    try { await mkdir(candidate); }
+    catch (error) {
+      if (/** @type {NodeJS.ErrnoException} */ (error).code === 'EEXIST') continue;
+      throw error;
+    }
+    return openProject(candidate);
+  }
 }
 
 /**
